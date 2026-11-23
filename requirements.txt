@@ -2,3 +2,5 @@ streamlit>=1.50
 matplotlib
 numpy
 reportlab
+pypdf>=5
+
