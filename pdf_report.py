@@ -74,7 +74,9 @@ def create_pdf_report(
     diagram_figure=None,
     manning_results=None,
     critical_results=None,
-    engineering_notes=""
+    engineering_notes="",
+    project_reference="",
+    document_revision="A",
 ):
 
     """
@@ -192,6 +194,8 @@ def create_pdf_report(
     cover_data = [
         ["PROJECT INFORMATION", ""],
         ["Project name", escape(str(project_name or "Not specified"))],
+        ["Project reference", escape(str(project_reference or "Not specified"))],
+        ["Document revision", escape(str(document_revision or "Not specified"))],
         ["Prepared by", escape(str(prepared_by or "Not specified"))],
         ["Channel type", escape(str(channel.name))],
         ["Flow depth", f"{float(depth):.4f} m"],
@@ -254,6 +258,8 @@ def create_pdf_report(
     project_data = [
         ["Description", "Details"],
         ["Project", escape(str(project_name or "Not specified"))],
+        ["Project reference", escape(str(project_reference or "Not specified"))],
+        ["Document revision", escape(str(document_revision or "Not specified"))],
         ["Prepared by", escape(str(prepared_by or "Not specified"))],
         ["Report date", datetime.now().strftime("%d %B %Y")],
         ["Channel type", escape(str(channel.name))],

@@ -1,6 +1,5 @@
 # open_channel_program_fixed.py
-# Flow in Non-Erodible Open Channels
-# Corrected and validated version of the original command-line program.
+# Hydraulic calculation engine for SHEAN Flow.
 
 from __future__ import annotations
 
@@ -305,12 +304,25 @@ class Manning:
         n, S0 = Manning._validate(n, S0)
         low = _finite_positive(y_low, "Lower depth limit")
         if y_high is None:
-            y_high = channel.D * (1.0 - 1e-10) if isinstance(channel, CircularChannel) else 1000.0
+            y_high = channel.D * (1.0 - 1e-10) if isinstance(channel, CircularChannel) else max(1000.0, (Q * n / math.sqrt(S0)) ** (3.0 / 8.0) * 100.0)
         high = _finite_positive(y_high, "Upper depth limit")
         if isinstance(channel, CircularChannel):
             high = min(high, channel.D * (1.0 - 1e-10))
         function = lambda depth: Manning.discharge(channel, depth, n, S0) - Q
-        bracket_low, bracket_high = _find_first_bracket(function, low, high)
+        try:
+            bracket_low, bracket_high = _find_first_bracket(function, low, high)
+        except ValueError:
+            if isinstance(channel, CircularChannel):
+                q_max = max(
+                    Manning.discharge(channel, channel.D * i / 400.0, n, S0)
+                    for i in range(1, 401)
+                )
+                raise ValueError(
+                    f"Q = {Q:.4f} m^3/s is larger than the maximum capacity of "
+                    f"this pipe ({q_max:.4f} m^3/s) at this slope and roughness. "
+                    "Increase the diameter or the slope."
+                ) from None
+            raise
         return _bisect_root(function, bracket_low, bracket_high, tol=tol,
                             max_iter=max_iter, label="normal depth")
 
@@ -368,7 +380,15 @@ class CriticalFlow:
                 return math.nan
             return Q ** 2 * top_width / (G * area ** 3) - 1.0
 
-        bracket_low, bracket_high = _find_first_bracket(function, low, high)
+        try:
+            bracket_low, bracket_high = _find_first_bracket(function, low, high)
+        except ValueError:
+            if isinstance(channel, CircularChannel):
+                raise ValueError(
+                    f"No critical depth exists for Q = {Q:.4f} m^3/s: the pipe is "
+                    "too small for this discharge to flow partly full."
+                ) from None
+            raise
         return _bisect_root(function, bracket_low, bracket_high, tol=tol,
                             max_iter=max_iter, label="critical depth")
 

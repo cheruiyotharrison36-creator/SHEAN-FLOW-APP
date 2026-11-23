@@ -86,11 +86,14 @@ def draw_channel(
         )
 
     elif shape == "triangular":
-        if left_slope is None or left_slope <= 0:
-            raise ValueError("Left side slope must be positive.")
+        if left_slope is None or left_slope < 0:
+            raise ValueError("Invalid left side slope.")
 
-        if right_slope is None or right_slope <= 0:
-            raise ValueError("Right side slope must be positive.")
+        if right_slope is None or right_slope < 0:
+            raise ValueError("Invalid right side slope.")
+
+        if left_slope + right_slope <= 0:
+            raise ValueError("At least one side slope must be greater than zero.")
 
         left_x = -left_slope * depth
         right_x = right_slope * depth
@@ -116,8 +119,8 @@ def draw_channel(
         if diameter is None or diameter <= 0:
             raise ValueError("Diameter must be positive.")
 
-        if depth >= diameter:
-            raise ValueError("Depth must be less than diameter.")
+        if depth > diameter * (1 + 1e-9):
+            raise ValueError("Depth cannot exceed the diameter.")
 
         radius = diameter / 2
 
@@ -127,23 +130,32 @@ def draw_channel(
         )
         ax.add_patch(circle)
 
-        half_chord = np.sqrt(
-            radius**2 - (depth - radius)**2
-        )
+        if depth >= diameter * (1 - 1e-9):
+            # Pipe flowing full: the whole circle is water.
+            ax.add_patch(Circle(
+                (0, radius), radius,
+                color=water_color, alpha=0.45
+            ))
+            ax.autoscale_view()
+        else:
+            half_chord = np.sqrt(
+                radius**2 - (depth - radius)**2
+            )
 
-        x = np.linspace(-half_chord, half_chord, 200)
-        y = radius - np.sqrt(radius**2 - x**2)
+            x = np.linspace(-half_chord, half_chord, 200)
+            y = radius - np.sqrt(radius**2 - x**2)
 
-        ax.fill_between(
-            x, y, depth,
-            color=water_color, alpha=0.45
-        )
+            ax.fill_between(
+                x, y, depth,
+                color=water_color, alpha=0.45
+            )
 
-        ax.plot(
-            [-half_chord, half_chord],
-            [depth, depth],
-            color="#087EBD", linewidth=2
-        )
+            ax.plot(
+                [-half_chord, half_chord],
+                [depth, depth],
+                color="#087EBD", linewidth=2
+            )
+            ax.autoscale_view()
 
     else:
         raise ValueError("Unsupported channel shape.")
