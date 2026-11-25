@@ -10,6 +10,7 @@ from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
+from reportlab.lib.utils import ImageReader
 from reportlab.platypus import (
     SimpleDocTemplate,
     Paragraph,
@@ -31,6 +32,56 @@ BLUE = colors.HexColor("#2874A6")
 LIGHT_BLUE = colors.HexColor("#E8EFF7")
 LIGHT_GREY = colors.HexColor("#F3F6FA")
 GREY = colors.HexColor("#777777")
+
+
+# --------------------------------------------------
+# TEXT HELPERS FOR THE BUILT-IN PDF FONT
+# --------------------------------------------------
+# The standard PDF fonts cannot print Greek letters, subscripts or the
+# square-root sign, so these are replaced by plain-text equivalents.
+
+_PDF_MAP = {
+    "θ": "theta", "Θ": "Theta", "Δ": "Delta", "γ": "gamma", "τ": "tau",
+    "ν": "nu", "ρ": "rho", "ω": "omega", "μ": "mu", "π": "pi", "η": "eta",
+    "√": "sqrt", "−": "-", "½": "1/2", "≥": ">=", "≤": "<=", "≈": "~",
+    "→": "->", "•": "-", "·": ".", "⁄": "/", "✅": "[ok]", "⚠️": "[check]",
+    "₀": "0", "₁": "1", "₂": "2", "₃": "3", "ₕ": "h", "ₐ": "a", "ₑ": "e",
+    "ⱼ": "j", "ₘ": "m", "ₙ": "n", "ₒ": "o", "ₓ": "x", "ᵢ": "i", "ᵣ": "r",
+    "ᵥ": "v", "ₜ": "t", "ₛ": "s", "ₗ": "l", "ₚ": "p", "ₖ": "k",
+}
+
+
+def pdf_text(value):
+    """Plain text that the built-in PDF font can print."""
+    text = str(value)
+    for char, repl in _PDF_MAP.items():
+        text = text.replace(char, repl)
+    return text.encode("cp1252", "replace").decode("cp1252")
+
+
+def make_data_table(columns, rows):
+    """Compact table for wide data (iteration and direct-step tables)."""
+    ncols = max(len(columns), 1)
+    width = 170 * mm / ncols
+    data = [[pdf_text(c) for c in columns]] + [
+        [pdf_text(v) for v in row] for row in rows
+    ]
+    table = Table(data, colWidths=[width] * ncols, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.3, colors.grey),
+        ("FONTSIZE", (0, 0), (-1, -1), 7.5),
+        ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 3),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("BACKGROUND", (0, 0), (-1, 0), NAVY),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, LIGHT_GREY]),
+    ]))
+    return table
 
 
 def make_table(data, col_widths, header=True):
@@ -75,8 +126,7 @@ def create_pdf_report(
     manning_results=None,
     critical_results=None,
     engineering_notes="",
-    project_reference="",
-    document_revision="A",
+    additional_results=None
 ):
 
     """
@@ -152,6 +202,39 @@ def create_pdf_report(
 
     styles.add(
         ParagraphStyle(
+            name="ItemHeading",
+            parent=styles["Heading3"],
+            fontSize=10.5,
+            leading=14,
+            textColor=BLUE,
+            spaceBefore=9,
+            spaceAfter=4,
+            keepWithNext=True,
+        )
+    )
+
+    styles.add(
+        ParagraphStyle(
+            name="TableTitle",
+            parent=styles["Normal"],
+            fontSize=8.5,
+            leading=11,
+            textColor=colors.HexColor("#555555"),
+            keepWithNext=True,
+        )
+    )
+
+    styles.add(
+        ParagraphStyle(
+            name="CellText",
+            parent=styles["Normal"],
+            fontSize=9,
+            leading=11,
+        )
+    )
+
+    styles.add(
+        ParagraphStyle(
             name="SmallText",
             parent=styles["Normal"],
             fontSize=8,
@@ -194,8 +277,6 @@ def create_pdf_report(
     cover_data = [
         ["PROJECT INFORMATION", ""],
         ["Project name", escape(str(project_name or "Not specified"))],
-        ["Project reference", escape(str(project_reference or "Not specified"))],
-        ["Document revision", escape(str(document_revision or "Not specified"))],
         ["Prepared by", escape(str(prepared_by or "Not specified"))],
         ["Channel type", escape(str(channel.name))],
         ["Flow depth", f"{float(depth):.4f} m"],
@@ -258,8 +339,6 @@ def create_pdf_report(
     project_data = [
         ["Description", "Details"],
         ["Project", escape(str(project_name or "Not specified"))],
-        ["Project reference", escape(str(project_reference or "Not specified"))],
-        ["Document revision", escape(str(document_revision or "Not specified"))],
         ["Prepared by", escape(str(prepared_by or "Not specified"))],
         ["Report date", datetime.now().strftime("%d %B %Y")],
         ["Channel type", escape(str(channel.name))],
@@ -542,12 +621,129 @@ def create_pdf_report(
         )
 
     # ==================================================
-    # 7. ENGINEERING NOTES
+    # 7. ADDITIONAL CALCULATIONS (optional)
+    # ==================================================
+
+    notes_number = 7
+    verification_number = 8
+
+    if additional_results:
+
+        notes_number = 8
+        verification_number = 9
+
+        story.append(
+            Paragraph(
+                "7. ADDITIONAL CALCULATIONS",
+                styles["SectionHeading"]
+            )
+        )
+
+        story.append(
+            Paragraph(
+                "The calculations below were run in SHEAN FLOW APP for "
+                "the cases shown. Each block lists the method, the inputs "
+                "and the results.",
+                styles["Normal"]
+            )
+        )
+
+        def cell(value):
+            return Paragraph(escape(pdf_text(value)), styles["CellText"])
+
+        figure_number = 2
+
+        for index, item in enumerate(additional_results, start=1):
+
+            block = [
+                Paragraph(
+                    escape(pdf_text(f"7.{index}  {item.get('title', 'Calculation')}")),
+                    styles["ItemHeading"]
+                )
+            ]
+
+            if item.get("basis"):
+                block.append(
+                    Paragraph(
+                        escape(pdf_text("Method: " + item["basis"])),
+                        styles["SmallText"]
+                    )
+                )
+                block.append(Spacer(1, 2 * mm))
+
+            story.append(KeepTogether(block))
+
+            if item.get("inputs"):
+                data = [["Input", "Value"]] + [
+                    [cell(k), cell(v)] for k, v in item["inputs"].items()
+                ]
+                story.append(make_table(data, [85 * mm, 85 * mm]))
+                story.append(Spacer(1, 3 * mm))
+
+            if item.get("results"):
+                data = [["Result", "Value"]] + [
+                    [cell(k), cell(v)] for k, v in item["results"].items()
+                ]
+                story.append(make_table(data, [85 * mm, 85 * mm]))
+
+            table = item.get("table")
+
+            if table and table.get("rows"):
+
+                story.append(Spacer(1, 3 * mm))
+
+                if table.get("title"):
+                    story.append(
+                        Paragraph(
+                            escape(pdf_text(table["title"])),
+                            styles["TableTitle"]
+                        )
+                    )
+                    story.append(Spacer(1, 1 * mm))
+
+                story.append(
+                    make_data_table(table["columns"], table["rows"])
+                )
+
+            if item.get("figure_png"):
+
+                png = BytesIO(item["figure_png"])
+                width_px, height_px = ImageReader(png).getSize()
+                png.seek(0)
+
+                draw_width = 135 * mm
+                draw_height = draw_width * height_px / width_px
+
+                if draw_height > 95 * mm:
+                    draw_height = 95 * mm
+                    draw_width = draw_height * width_px / height_px
+
+                story.append(Spacer(1, 3 * mm))
+
+                story.append(
+                    KeepTogether([
+                        Image(png, width=draw_width, height=draw_height),
+                        Paragraph(
+                            escape(pdf_text(
+                                f"Figure {figure_number}: "
+                                f"{item.get('title', 'Calculation')}."
+                            )),
+                            styles["SmallText"]
+                        )
+                    ])
+                )
+
+                figure_number += 1
+
+            story.append(Spacer(1, 4 * mm))
+
+    # ==================================================
+    # ENGINEERING NOTES
     # ==================================================
 
     story.append(
         Paragraph(
-            "7. ENGINEERING NOTES AND OBSERVATIONS",
+            f"{notes_number}. ENGINEERING NOTES AND OBSERVATIONS",
             styles["SectionHeading"]
         )
     )
@@ -565,12 +761,12 @@ def create_pdf_report(
     )
 
     # ==================================================
-    # 8. ENGINEERING VERIFICATION
+    # ENGINEERING VERIFICATION
     # ==================================================
 
     story.append(
         Paragraph(
-            "8. ENGINEERING VERIFICATION NOTICE",
+            f"{verification_number}. ENGINEERING VERIFICATION NOTICE",
             styles["SectionHeading"]
         )
     )

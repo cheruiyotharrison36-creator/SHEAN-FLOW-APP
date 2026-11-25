@@ -1,40 +1,62 @@
-# Open Channel Flow Calculator
+# SHEAN FLOW APP
 
-A responsive browser-based interface for the existing Python open-channel calculation engine.
+Open-channel hydraulics calculator for rectangular, trapezoidal, triangular and
+circular sections. It runs in any web browser on a computer or a phone.
 
-## Features
-- Rectangular, trapezoidal, triangular and circular channel sections
-- Section geometry
-- Manning discharge, velocity and normal depth
-- Critical depth, specific energy, Froude number and flow regime
-- Discharge-depth curve and sampled values
+## What it does
 
-## Run in VS Code
+| Tab | Calculations |
+|---|---|
+| Section geometry | Flow area, wetted perimeter, top width, hydraulic radius, hydraulic depth, cross-section diagram |
+| Manning flow | Discharge and velocity from depth; normal depth from discharge, with a trial-and-error table |
+| Uniform flow tools | Solve the Chezy–Manning equation for Q, y₀, n, S₀ or bottom width; Froude and Reynolds numbers, wall shear stress, Chezy C; partly full pipes; most efficient sections |
+| Critical flow | Critical depth, specific energy, Froude number and flow regime |
+| Specific energy | Energy–depth curve; alternate depth by bisection, Newton–Raphson or trial and error; bed steps and choking; width changes; reservoir entrance; transition losses |
+| Hydraulic jump | Sequent depth in any section, rectangular jump from the Froude number, head loss, power, jump type and length, baffle blocks, moving surge, force on a gate |
+| Gradually varied flow | Slope class (M, S, C, H, A), profile name, direct step method, Runge–Kutta integration, sluice gate with M3 profile and jump |
+| Weirs and flumes | Broad-crested, rectangular sharp-crested (Rehbock or Kindsvater–Carter), V-notch, Francis and Parshall flume, each for discharge from head and head from discharge |
+| Discharge-depth curve | Discharge, velocity, area and Froude number against depth |
+| PDF Engineering Report | Project report with the section, diagram, results and any calculation saved from the other tabs |
 
-1. Extract this folder and open it in VS Code.
-2. Open the integrated terminal in this folder.
-3. Create and activate a virtual environment (recommended):
+Units are metres, m³/s and m/m (bed slope). Manning's n is dimensionless.
 
-   Windows:
-   ```powershell
-   py -m venv .venv
-   .venv\Scripts\activate
-   ```
+## Run it
 
-4. Install dependencies:
-   ```powershell
-   python -m pip install -r requirements.txt
-   ```
+    pip install -r requirements.txt
+    python -m streamlit run app.py
 
-5. Start the web application:
-   ```powershell
-   streamlit run app.py
-   ```
+## Project structure
 
-6. Streamlit will print a local URL, normally `http://localhost:8501`. Open it in your browser.
+    app.py               page layout, sidebar and the core tabs
+    ui_tabs.py           screens for the additional tabs
+    ui_common.py         shared widgets, formatting and the report store
+    open_channel.py      channel classes, Manning, critical flow, hydraulic jump
+    hydraulic_tools.py   uniform-flow solver, energy, transitions, weirs, GVF, rating table
+    channel_diagrams.py  cross-section drawings
+    pdf_report.py        PDF report builder
+    test_verification.py benchmark checks (python test_verification.py)
 
-## Notes
-- `open_channel_program_fixed.py` contains the calculation classes and methods.
-- `app.py` is the Streamlit user interface and imports the existing calculation engine.
-- The desktop GUI can be added later using the same calculation module.
-- This is an engineering calculation aid. Independently verify design assumptions and results before construction use.
+## Verification
+
+`test_verification.py` compares the software with hand calculations and
+benchmark cases (geometry, Manning flow, critical flow, hydraulic jumps,
+transitions, weirs and gradually varied flow). Every check must pass.
+
+## Limits of use
+
+This is an engineering calculation aid. Weir and flume coefficients,
+empirical jump lengths and roughness values are approximate and depend on
+site conditions. Verify results independently before using them in design.
+
+## References
+
+- Chow, V. T. (1959). *Open-Channel Hydraulics*. McGraw-Hill.
+- Henderson, F. M. (1966). *Open Channel Flow*. Macmillan.
+- French, R. H. (1985). *Open-Channel Hydraulics*. McGraw-Hill.
+- Chaudhry, M. H. (2008). *Open-Channel Flow*. Springer.
+- Sturm, T. W. (2010). *Open Channel Hydraulics*. McGraw-Hill.
+- Subramanya, K. (2015). *Flow in Open Channels*. McGraw-Hill.
+- Bakhmeteff, B. A. and Matzke, A. E. (1936). The hydraulic jump in terms of dynamic similarity. *Transactions of the ASCE*.
+- Kindsvater, C. E. and Carter, R. W. (1959). Discharge characteristics of rectangular thin-plate weirs. *Transactions of the ASCE*.
+- Rehbock, T. (1929). Discharge coefficient of sharp-crested weirs.
+- U.S. Bureau of Reclamation. *Water Measurement Manual*.
